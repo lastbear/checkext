@@ -1,6 +1,7 @@
 #!/bin/bash
 FIX=
 SEARCHPATH=$(pwd)
+NOTITLE=false
 
 while [[ $# -gt 0 ]]
 do
@@ -16,12 +17,8 @@ case $key in
 	shift # past argument
 	shift # past value
 	;;
-	--default)
-	DEFAULT=YES
-	shift # past argument
-	;;
-	*)    # unknown option
-	POSITIONAL+=("$1") # save it in an array for later
+	--notitle)
+	NOTITLE=true
 	shift # past argument
 	;;
 esac
@@ -31,29 +28,37 @@ done
 echo "File extension checker v1.0"
 echo "FIX(auto,append) : $FIX"
 echo "SEARCHPATH       : $SEARCHPATH"
+echo "NOTITLE          : $NOTITLE"
 
 check_dir() {
-	echo "$(find "$1" -maxdepth 1 -type f | wc -l) file(s) in directory: '$1'"
+	if [ $NOTITLE = false ]; then
+		echo "$(find "$1" -maxdepth 1 -type f | wc -l) file(s) in directory: '$1'"
+	fi
 	for f in "$1"/*; do
-		[ -d "$f" ] && continue
-		type=$( file "$f" | grep -oP '\w+(?= image data)' )
-		case $type in
-			PNG)  newext=png ;;
-			JPEG) newext=jpg ;;
-			*)    echo 'unknown extension: $f'; continue ;;
-		esac
-		fn=${f##*/}
-		ext=${f##*.}; # remove everything up to and including the last dot
-		if [[ $ext != $newext ]]; then
-			case $FIX in
-				auto)
-					echo mv "$fn" "${fn%.*}.$newext"
-					mv "$f" "${f%.*}.$newext" ;;
-				append)
-					echo mv "$fn" "${fn}.$newext"
-					mv "$f" "${f}.$newext" ;;
-				*)	echo mv "$fn" "${fn%.*}.$newext" ;;
+		if [ -f "$f" ]; then
+			type=$( file "$f" | grep -oP '\w+(?= image data)' )
+			case $type in
+				GIF)  newext=gif ;;
+				PNG)  newext=png ;;
+				JPEG) newext=jpg; newext2=jpeg ;;
+				*)    echo "unknown extension: f=$f, t=$type"; continue ;;
 			esac
+			fn=${f##*/}
+			ext=${f##*.}; # remove everything up to and including the last dot
+			if [[ ${ext,,} != ${newext,,} && ${ext,,} != ${newext2,,} ]]; then # compare ignore case
+				case $FIX in
+					auto)
+						echo mv "$fn" "${fn%.*}.$newext"
+						mv "$f" "${f%.*}.$newext"
+						;;
+					append)
+						echo mv "$fn" "${fn}.$newext"
+						mv "$f" "${f}.$newext"
+						;;
+					*)	echo mv "$fn" "${fn%.*}.$newext"
+						;;
+				esac
+			fi
 		fi
 	done
 }
